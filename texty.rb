@@ -1,4 +1,9 @@
+$: << "../missingno/"
+
+puts $:
+
 require 'ncurses'
+require 'missingno'
 
 module Texty
   module Bindings
@@ -6,6 +11,8 @@ module Texty
       @bindings ||= Hash.new([])
       @bindings[key] << proc
     end
+    def_when /^bind_(.+)$/, :bind
+    def_when /^on_(.+)$/, :bind
     
     def unbind key, &proc
       return unless @bindings
@@ -16,6 +23,7 @@ module Texty
         @bindings[key].delete proc
       end
     end
+    def_when /^unbind_(.+)$/, :unbind
     
     def trigger key, *args
       return unless @bindings
@@ -23,6 +31,7 @@ module Texty
         p.call *args
       end
     end
+    def_when /^trigger_(.+)$/, :trigger
   end
   
   class Application
@@ -153,7 +162,7 @@ module Texty
       
       key = get_key
       return terminate if (key == :ctrl_c)
-      trigger :key, key if key
+      trigger_key_press key if key
     end
   end
   
