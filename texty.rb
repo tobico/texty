@@ -40,6 +40,10 @@ module Texty
     attr_accessor :window
     attr_accessor :running
     
+    def initialize options = {}
+      @window = options[:window] || nil
+    end
+    
     def run
       begin
         Ncurses.initscr
@@ -182,14 +186,41 @@ module Texty
   class Container < Control
     def initialize options = {}
       super
-      @children = []
+      @children = options[:children] || []
+      @title = options[:title] || nil
     end
+    
+    attr_accessor :title
     
     def add_child child
       @children << child
     end
     
+    def remove_child child
+      @children.delete child
+    end
+    
+    def clear_children
+      @children.clear
+    end
+    
     def draw_to_region x, y, w, h
+      unless @title.nil?
+        draw_title_to_region x, y, w, 1
+        draw_children_to_region x, y + 1, w, h - 2
+      else
+        draw_children_to_region x, y, w, h
+      end
+    end
+  private
+    def draw_title_to_region x, y, w, h
+      Ncurses.move y, x
+      Ncurses.attron Ncurses.COLOR_PAIR(3) | Ncurses::A_REVERSE
+      Ncurses.addnstr " #{@title}".ljust(w), w
+      Ncurses.attroff Ncurses.COLOR_PAIR(3) | Ncurses::A_REVERSE
+    end
+  
+    def draw_children_to_region x, y, w, h
       @children.each do |c|
         if c.left && c.width
           cx = x + c.left
@@ -222,18 +253,9 @@ module Texty
   class Window < Container
     def initialize options = {}
       super
-      @title = 'untitled'
     end
     
     attr_accessor :title
-    
-    def draw_to_region x, y, w, h
-      Ncurses.move y, x
-      Ncurses.attron Ncurses.COLOR_PAIR(3) | Ncurses::A_REVERSE
-      Ncurses.addnstr " #{@title}".ljust(w), w
-      Ncurses.attroff Ncurses.COLOR_PAIR(3) | Ncurses::A_REVERSE
-      super x, y + 1, w, h - 2
-    end
     
     def draw_to_screen
       Ncurses.erase
