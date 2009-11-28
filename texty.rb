@@ -82,9 +82,9 @@ module Texty
         raise "Colors not supported" unless Ncurses.has_colors?
         Ncurses.start_color
         Ncurses.use_default_colors if Ncurses.respond_to? :use_default_colors
-        Ncurses.init_pair 1, Ncurses::COLOR_RED, Ncurses::COLOR_BLACK
-        Ncurses.init_pair 2, Ncurses::COLOR_GREEN, Ncurses::COLOR_BLACK
-        Ncurses.init_pair 3, Ncurses::COLOR_BLUE, Ncurses::COLOR_BLACK
+        Ncurses.init_pair 1, Ncurses::COLOR_RED, -1
+        Ncurses.init_pair 2, Ncurses::COLOR_GREEN, -1
+        Ncurses.init_pair 3, Ncurses::COLOR_BLUE, -1
         Ncurses.raw
         
         @running = true
@@ -262,18 +262,20 @@ module Texty
     
     attr_reader :focussed
     def focussed= focussed
-      @focussed.blur if @focussed
+      @focussed.blur if @focussed && @has_focus
       @focussed = focussed
-      @focussed.focus if @focussed
+      @focussed.focus if @focussed && @has_focus
     end
     
     def focus
       focus_first unless @focussed
       @has_focus = true
+      @focussed.focus if @focussed
     end
     
     def blur
       @has_focus = false
+      @focussed.blur if @focussed
     end
     
     def focus_first
@@ -400,13 +402,13 @@ module Texty
     def initialize options = {}
       super
       @items = []
-      @selected_index = 0
     end
     
     attr_accessor :items
     
     def add_item item
       @items << item
+      self.selected_index = 0 if @items.length == 1
     end
     
     def accepts_focus
@@ -446,6 +448,7 @@ module Texty
           style = Ncurses::A_REVERSE
           style |= Ncurses.COLOR_PAIR(3) if @has_focus
         end
+        style |= Ncurses.COLOR_PAIR(item[:color]) if item.include? :color
         Screen.print_line_with_style x, y+i, w, style, item[:text].ljust(w)
         i += 1
       end
