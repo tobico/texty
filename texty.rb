@@ -1,11 +1,11 @@
 $: << "../missingno/"
 
-puts $:
-
 require 'ncurses'
 require 'missingno'
 
 module Texty
+  OPTIONS_FILL = { :left => 0, :top => 0, :right => 0, :bottom => 0 }
+  
   module Bindings
     def bind key, &proc
       @bindings ||= Hash.new([])
@@ -32,6 +32,19 @@ module Texty
       end
     end
     def_when /^trigger_(.+)$/, :trigger
+  end
+  
+  class Screen
+    def self.draw_border x, y, w, h
+      Ncurses.mvhline y,      x+1,    Ncurses::ACS_HLINE,   w-2
+      Ncurses.mvhline y+h-1,  x+1,    Ncurses::ACS_HLINE,   w-2
+      Ncurses.mvvline y+1,    x,      Ncurses::ACS_VLINE,   h-2
+      Ncurses.mvvline y+1,    x+w-1,  Ncurses::ACS_VLINE,   h-2
+      Ncurses.mvaddch y,      x,      Ncurses::ACS_ULCORNER
+      Ncurses.mvaddch y,      x+w-1,  Ncurses::ACS_URCORNER
+      Ncurses.mvaddch y+h-1,  x,      Ncurses::ACS_LLCORNER
+      Ncurses.mvaddch y+h-1,  x+w-1,  Ncurses::ACS_LRCORNER
+    end
   end
   
   class Application
@@ -188,6 +201,7 @@ module Texty
       super
       @children = options[:children] || []
       @title = options[:title] || nil
+      @border = options[:border] || nil
     end
     
     attr_accessor :title
@@ -205,9 +219,15 @@ module Texty
     end
     
     def draw_to_region x, y, w, h
-      unless @title.nil?
-        draw_title_to_region x, y, w, 1
-        draw_children_to_region x, y + 1, w, h - 2
+      if @title
+        if @border == :single
+          Screen.draw_border x, y, w, h
+          draw_title_to_region x, y, w, 1
+          draw_children_to_region x+1, y + 1, w - 2, h - 2
+        else
+          draw_title_to_region x, y, w, 1
+          draw_children_to_region x, y + 1, w, h - 1
+        end
       else
         draw_children_to_region x, y, w, h
       end
@@ -279,5 +299,20 @@ module Texty
   end
   
   class List < Control
+    def initialize options = {}
+      super
+      @items = []
+    end
+    
+    attr_accessor :items
+    
+    def draw_to_region x, y, w, h
+      cy = y
+      @items.each do |item|
+        Ncurses.move cy, x
+        Ncurses.addnstr item[:text], w
+        cy += 1
+      end
+    end
   end
 end
