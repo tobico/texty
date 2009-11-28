@@ -45,16 +45,32 @@ module Texty
       Ncurses.mvaddch y+h-1,  x,      Ncurses::ACS_LLCORNER
       Ncurses.mvaddch y+h-1,  x+w-1,  Ncurses::ACS_LRCORNER
     end
+    
+    def self.print_line x, y, w, text
+      Ncurses.move y, x
+      Ncurses.addnstr text, w
+    end
+    
+    def self.print_line_with_style x, y, w, style, text
+      Ncurses.attron style unless style == 0
+      self.print_line x, y, w, text
+      Ncurses.attroff style unless style == 0
+    end
   end
   
   class Application
     include Bindings
     
-    attr_accessor :window
     attr_accessor :running
     
     def initialize options = {}
-      @window = options[:window] || nil
+      self.window = options[:window] || nil
+    end
+    
+    attr_reader :window
+    def window= window
+      @window = window
+      window.focus if window
     end
     
     def run
@@ -69,7 +85,6 @@ module Texty
         Ncurses.init_pair 1, Ncurses::COLOR_RED, Ncurses::COLOR_BLACK
         Ncurses.init_pair 2, Ncurses::COLOR_GREEN, Ncurses::COLOR_BLACK
         Ncurses.init_pair 3, Ncurses::COLOR_BLUE, Ncurses::COLOR_BLACK
-        #Ncurses::keypad Ncurses::stdscr, true
         Ncurses.raw
         
         @running = true
@@ -179,11 +194,13 @@ module Texty
       
       key = get_key
       return terminate if (key == :ctrl_c)
-      trigger_key_press key if key
+      @window.key_press key if key
     end
   end
   
   class Control
+    include Bindings
+    
     def initialize options = {}
       @top = options[:top] || nil
       @left = options[:left] || nil
@@ -194,6 +211,10 @@ module Texty
     end
     
     attr_accessor :top, :left, :bottom, :right, :width, :height
+    
+    def accepts_focus
+      false
+    end
   end
   
   class Container < Control
@@ -221,8 +242,10 @@ module Texty
     def draw_to_region x, y, w, h
       if @title
         if @border == :single
+          Ncurses.attron Ncurses.COLOR_PAIR(3) if @has_focus
           Screen.draw_border x, y, w, h
-          draw_title_to_region x, y, w, 1
+          Screen.print_line x+1, y, w-2, @title
+          Ncurses.attroff Ncurses.COLOR_PAIR(3) if @has_focus
           draw_children_to_region x+1, y + 1, w - 2, h - 2
         else
           draw_title_to_region x, y, w, 1
@@ -232,12 +255,87 @@ module Texty
         draw_children_to_region x, y, w, h
       end
     end
+    
+    def accepts_focus
+      @children.any? &:accepts_focus
+    end
+    
+    attr_reader :focussed
+    def focussed= focussed
+      @focussed.blur if @focussed
+      @focussed = focussed
+      @focussed.focus if @focussed
+    end
+    
+    def focus
+      focus_first unless @focussed
+      @has_focus = true
+    end
+    
+    def blur
+      @has_focus = false
+    end
+    
+    def focus_first
+      self.focussed = @children.find &:accepts_focus
+    end
+    
+    def focus_next
+      if @focussed.respond_to?(:focus_next) && @focussed.focus_next
+        true
+      else
+        found_current = false
+        next_focus = @children.find do |object|
+          if object === @focussed
+            found_current = true
+            false
+          else
+            found_current && object.accepts_focus
+          end
+        end
+        self.focussed = next_focus if next_focus
+        next_focus
+      end
+    end
+    
+    def focus_last
+      self.focussed = @children.reverse.find &:accepts_focus
+    end
+    
+    def focus_prev
+      if @focussed.respond_to?(:focus_prev) && @focussed.focus_prev
+        true
+      else
+        found_current = false
+        prev_focus = @children.reverse.find do |object|
+          if object === @focussed
+            found_current = true
+            false
+          else
+            found_current && object.accepts_focus
+          end
+        end
+        self.focussed = prev_focus if prev_focus
+        prev_focus
+      end
+    end
+    
+    def key_press key
+      case key
+      when :tab
+        focus_next or focus_first
+      when :backtab
+        focus_prev or focus_last
+      else
+        @focussed.key_press key if @focussed
+      end
+    end
+    
   private
     def draw_title_to_region x, y, w, h
-      Ncurses.move y, x
-      Ncurses.attron Ncurses.COLOR_PAIR(3) | Ncurses::A_REVERSE
-      Ncurses.addnstr " #{@title}".ljust(w), w
-      Ncurses.attroff Ncurses.COLOR_PAIR(3) | Ncurses::A_REVERSE
+      style = Ncurses::A_REVERSE
+      style |= Ncurses.COLOR_PAIR(3) if @has_focus
+      Screen.print_line_with_style x, y, w, style, " #{@title}".ljust(w)
     end
   
     def draw_children_to_region x, y, w, h
@@ -302,16 +400,54 @@ module Texty
     def initialize options = {}
       super
       @items = []
+      @selected_index = 0
     end
     
     attr_accessor :items
     
+    def add_item item
+      @items << item
+    end
+    
+    def accepts_focus
+      true
+    end
+    
+    def focus
+      @has_focus = true
+    end
+    
+    def blur
+      @has_focus = false
+    end
+    
+    attr_reader :selected_index
+    def selected_index= index
+      if (0...@items.length).include? index
+        @selected_index = index
+        trigger_select @items[index]
+      end
+    end
+    
+    def key_press key
+      case key
+        when :down
+          self.selected_index += 1
+        when :up
+          self.selected_index -= 1
+      end
+    end
+    
     def draw_to_region x, y, w, h
-      cy = y
+      i = 0
       @items.each do |item|
-        Ncurses.move cy, x
-        Ncurses.addnstr item[:text], w
-        cy += 1
+        style = 0
+        if i === @selected_index
+          style = Ncurses::A_REVERSE
+          style |= Ncurses.COLOR_PAIR(3) if @has_focus
+        end
+        Screen.print_line_with_style x, y+i, w, style, item[:text].ljust(w)
+        i += 1
       end
     end
   end
