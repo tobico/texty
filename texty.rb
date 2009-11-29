@@ -28,7 +28,9 @@ module Texty
     def trigger key, *args
       return unless @bindings
       @bindings[key].each do |p|
-        p.call *args
+        p.call *args do |action|
+          return :stop if action == :stop
+        end
       end
     end
     def_when /^trigger_(.+)$/, :trigger
@@ -52,9 +54,42 @@ module Texty
     end
     
     def self.print_line_with_style x, y, w, style, text
-      Ncurses.attron style unless style == 0
+      a = style_to_attr style
+      Ncurses.attron a unless a == 0
       self.print_line x, y, w, text
-      Ncurses.attroff style unless style == 0
+      Ncurses.attroff a unless a == 0
+    end
+    
+    def self.style_to_attr style
+      if style[:selected]
+        if style[:active]
+          if style[:color] == :red
+            Ncurses.COLOR_PAIR(2) | Ncurses::A_REVERSE
+          elsif style[:color] == :green
+            Ncurses.COLOR_PAIR(3) | Ncurses::A_REVERSE
+          else
+            Ncurses.COLOR_PAIR(1) | Ncurses::A_REVERSE
+          end
+        else
+          if style[:color] == :red
+            Ncurses.COLOR_PAIR(4)
+          elsif style[:color] == :green
+            Ncurses.COLOR_PAIR(5)
+          else
+            Ncurses::A_REVERSE
+          end
+        end
+      else
+        if style[:color] == :red
+          Ncurses.COLOR_PAIR(2)
+        elsif style[:color] == :green
+          Ncurses.COLOR_PAIR(3)
+        elsif style[:color] == :blue
+          Ncurses.COLOR_PAIR(1)
+        else
+          0
+        end
+      end
     end
   end
   
@@ -82,9 +117,13 @@ module Texty
         raise "Colors not supported" unless Ncurses.has_colors?
         Ncurses.start_color
         Ncurses.use_default_colors if Ncurses.respond_to? :use_default_colors
-        Ncurses.init_pair 1, Ncurses::COLOR_RED, -1
-        Ncurses.init_pair 2, Ncurses::COLOR_GREEN, -1
-        Ncurses.init_pair 3, Ncurses::COLOR_BLUE, -1
+        Ncurses.init_pair 1, Ncurses::COLOR_BLUE, -1
+        Ncurses.init_pair 2, Ncurses::COLOR_RED, -1
+        Ncurses.init_pair 3, Ncurses::COLOR_GREEN, -1
+        Ncurses.init_pair 4, Ncurses::COLOR_RED, Ncurses::COLOR_WHITE
+        Ncurses.init_pair 5, Ncurses::COLOR_GREEN, Ncurses::COLOR_WHITE
+        Ncurses.init_pair 6, Ncurses::COLOR_RED, Ncurses::COLOR_BLUE
+        Ncurses.init_pair 7, Ncurses::COLOR_GREEN, Ncurses::COLOR_BLUE
         Ncurses.raw
         
         @running = true
@@ -218,7 +257,7 @@ module Texty
   end
   
   class Container < Control
-    def initialize options = {}
+    def initialize options = {}, &block
       super
       @children = options[:children] || []
       @title = options[:title] || nil
@@ -229,6 +268,7 @@ module Texty
     
     def add_child child
       @children << child
+      child
     end
     
     def remove_child child
@@ -240,17 +280,15 @@ module Texty
     end
     
     def draw_to_region x, y, w, h
-      if @title
-        if @border == :single
-          Ncurses.attron Ncurses.COLOR_PAIR(3) if @has_focus
-          Screen.draw_border x, y, w, h
-          Screen.print_line x+1, y, w-2, @title
-          Ncurses.attroff Ncurses.COLOR_PAIR(3) if @has_focus
-          draw_children_to_region x+1, y + 1, w - 2, h - 2
-        else
-          draw_title_to_region x, y, w, 1
-          draw_children_to_region x, y + 1, w, h - 1
-        end
+      if @border == :single
+        Ncurses.attron Ncurses.COLOR_PAIR(1) if @has_focus
+        Screen.draw_border x, y, w, h
+        Screen.print_line x+1, y, w-2, @title if @title
+        Ncurses.attroff Ncurses.COLOR_PAIR(1) if @has_focus
+        draw_children_to_region x+1, y + 1, w - 2, h - 2
+      elsif @title
+        draw_title_to_region x, y, w, 1
+        draw_children_to_region x, y + 1, w, h - 1
       else
         draw_children_to_region x, y, w, h
       end
@@ -323,20 +361,21 @@ module Texty
     end
     
     def key_press key
-      case key
-      when :tab
-        focus_next or focus_first
-      when :backtab
-        focus_prev or focus_last
-      else
-        @focussed.key_press key if @focussed
+      unless trigger_key_press(key) == :stop
+        case key
+          when :tab
+            focus_next or focus_first
+          when :backtab
+            focus_prev or focus_last
+          else
+            @focussed.key_press key if @focussed
+        end
       end
     end
     
   private
     def draw_title_to_region x, y, w, h
-      style = Ncurses::A_REVERSE
-      style |= Ncurses.COLOR_PAIR(3) if @has_focus
+      style = { :selected => true, :active => @has_focus }
       Screen.print_line_with_style x, y, w, style, " #{@title}".ljust(w)
     end
   
@@ -361,7 +400,7 @@ module Texty
           ch = h - c.top - c.bottom
         elsif c.height && c.bottom
           cy = y + h - c.bottom - c.height
-          ch = h - top - c.bottom
+          ch = h - cy - c.bottom
         end
         
         #Ncurses.addstr "#{cx}, #{cy}, #{cw}, #{ch}"
@@ -371,10 +410,6 @@ module Texty
   end
   
   class Window < Container
-    def initialize options = {}
-      super
-    end
-    
     attr_accessor :title
     
     def draw_to_screen
@@ -402,6 +437,7 @@ module Texty
     def initialize options = {}
       super
       @items = []
+      @selected_index = -1
     end
     
     attr_accessor :items
@@ -409,6 +445,11 @@ module Texty
     def add_item item
       @items << item
       self.selected_index = 0 if @items.length == 1
+    end
+    
+    def clear
+      @items.clear
+      @selected_index = -1
     end
     
     def accepts_focus
@@ -443,12 +484,10 @@ module Texty
     def draw_to_region x, y, w, h
       i = 0
       @items.each do |item|
-        style = 0
-        if i === @selected_index
-          style = Ncurses::A_REVERSE
-          style |= Ncurses.COLOR_PAIR(3) if @has_focus
-        end
-        style |= Ncurses.COLOR_PAIR(item[:color]) if item.include? :color
+        style = {}
+        style[:selected] = @selected_index == i
+        style[:active] = @has_focus
+        style[:color] = item[:color] if item.include? :color
         Screen.print_line_with_style x, y+i, w, style, item[:text].ljust(w)
         i += 1
       end
