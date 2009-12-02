@@ -13,5 +13,6 @@ module Texty
   autoload :Label, 'texty/label'
   autoload :List, 'texty/list'
   autoload :Screen, 'texty/screen'
+  autoload :Scrollable, 'texty/scrollable'
   autoload :Window, 'texty/window'
 end

@@ -1,10 +1,13 @@
 module Texty
   class List < Control
+    include Scrollable
+    
     def initialize options = {}
       super
       @items = []
       @selected_index = -1
-      @scroll_y = 0
+      @scroll_y = options[:scroll_y] || 0
+      bind(:scrolled_y) { reposition_selected }
     end
     
     attr_accessor :items
@@ -40,27 +43,6 @@ module Texty
       trigger_select @items[index]
     end
     
-    attr_reader :scroll_y
-    def scroll_y= value
-      if value < 0
-        @scroll_y = 0
-      elsif value > @items.length - @last_h
-        @scroll_y = @items.length - @last_h
-      else
-        @scroll_y = value
-      end
-      @selected_index = @scroll_y if @selected_index < @scroll_y
-      @selected_index = @scroll_y + @last_h - 1 if @selected_index > @scroll_y + @last_h - 1
-    end
-    
-    def page_up
-      self.scroll_y -= @last_h if @last_h
-    end
-    
-    def page_down
-      self.scroll_y += @last_h if @last_h
-    end
-    
     def key_press key
       case key
         when :up
@@ -77,8 +59,8 @@ module Texty
     def draw_to_region x, y, w, h
       @last_h = h
       scroll_to_selection
-      if @items.length > y
-        draw_scrollbar x + w - 1, y, h, @items.length, @scroll_y
+      if @items.length > h
+        draw_scrollbar x + w - 1, y, h, @items.length, scroll_y
         w -= 1
       end
       cy = y
@@ -93,21 +75,6 @@ module Texty
         cy += 1
       end
     end
-    
-    def draw_scrollbar x, y, h, total_height, offset
-      bar_height = [h * h / total_height, 2].max
-      bar_offset = offset * (h-bar_height) / (total_height - h)
-      Ncurses.attron Ncurses::A_REVERSE
-      Ncurses.mvaddch y+bar_offset, x, Ncurses::ACS_UARROW
-      if bar_height > 2
-        (y+bar_offset+1..y+bar_offset+bar_height-2).each do |cy|
-          Ncurses.mvaddch cy, x, ?\s
-        end
-      end
-      Ncurses.mvaddch y+bar_offset+bar_height-1, x, Ncurses::ACS_DARROW
-      Ncurses.attroff Ncurses::A_REVERSE
-    end
-    
   private
     def scroll_to_selection
       if @selected_index < @scroll_y
@@ -115,6 +82,15 @@ module Texty
       end
       if @selected_index > @scroll_y + @last_h - 1
         @scroll_y = @selected_index - @last_h + 1
+      end
+    end
+    
+    def reposition_selected
+      if @selected_index < @scroll_y
+        @selected_index = @scroll_y
+      end
+      if @selected_index > @scroll_y + @last_h - 1
+        @selected_index = @scroll_y + @last_h - 1 
       end
     end
   end

@@ -9,7 +9,7 @@ module Texty
       @right = options[:right] || nil
       @width = options[:width] || nil                        
       @height = options[:height] || nil
-      @enabled = options[:enabled] || true
+      @enabled = options.has_key?(:enabled) ? options[:enabled] : true
     end
     
     attr_accessor :top, :left, :bottom, :right, :width, :height
