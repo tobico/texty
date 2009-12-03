@@ -4,22 +4,27 @@ module Texty
     
     attr_reader :scroll_y
     def scroll_y= value
+      return unless can_scroll?
       if value < 0
         @scroll_y = 0
-      elsif value > @items.length - @last_h
-        @scroll_y = @items.length - @last_h
+      elsif value > @scroll_height - @last_h
+        @scroll_y = @scroll_height - @last_h
       else
         @scroll_y = value
       end
       trigger :scrolled_y, value if value
     end
     
+    def can_scroll?
+      @last_h && @scroll_height > @last_h
+    end
+    
     def page_up
-      self.scroll_y -= @last_h if @last_h
+      self.scroll_y -= @last_h if can_scroll?
     end
     
     def page_down
-      self.scroll_y += @last_h if @last_h
+      self.scroll_y += @last_h if can_scroll?
     end
     
   private

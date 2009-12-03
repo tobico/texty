@@ -7,6 +7,7 @@ module Texty
       @items = []
       @selected_index = -1
       @scroll_y = options[:scroll_y] || 0
+      @scroll_height = 0
       bind(:scrolled_y) { reposition_selected }
     end
     
@@ -15,11 +16,13 @@ module Texty
     def add_item item
       @items << item
       self.selected_index = 0 if @items.length == 1
+      @scroll_height = @items.length
     end
     
     def clear
       @items.clear
       @selected_index = -1
+      @scroll_height = 0
     end
     
     def accepts_focus
@@ -37,10 +40,11 @@ module Texty
     attr_reader :selected_index
     def selected_index= index
       return unless @items.length
+      return if index == @selected_index
       index = 0 if index < 0
       index = @items.length - 1 if index >= @items.length
       @selected_index = index
-      trigger_select @items[index]
+      trigger_select @items[index] if @items[index]
     end
     
     def key_press key
