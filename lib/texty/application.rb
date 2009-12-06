@@ -30,6 +30,7 @@ module Texty
         Ncurses.init_pair 5, Ncurses::COLOR_GREEN, Ncurses::COLOR_WHITE
         Ncurses.init_pair 6, Ncurses::COLOR_RED, Ncurses::COLOR_BLUE
         Ncurses.init_pair 7, Ncurses::COLOR_GREEN, Ncurses::COLOR_BLUE
+        Ncurses.init_pair 8, Ncurses::COLOR_WHITE, Ncurses::COLOR_BLACK
         Ncurses.raw
         
         @running = true

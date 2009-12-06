@@ -30,6 +30,8 @@ module Texty
   private
     def draw_scrollbar x, y, h, total_height, offset
       return unless h < total_height
+      Ncurses.attron Ncurses.COLOR_PAIR(8)
+      Ncurses.mvvline y, x, ?\s, h
       bar_height = [h * h / total_height, 2].max
       bar_offset = offset * (h-bar_height) / (total_height - h)
       Ncurses.attron Ncurses::A_REVERSE
@@ -38,7 +40,7 @@ module Texty
         Ncurses.mvvline y+bar_offset+1, x, ?\s, bar_height - 2
       end
       Ncurses.mvaddch y+bar_offset+bar_height-1, x, Ncurses::ACS_DARROW
-      Ncurses.attroff Ncurses::A_REVERSE
+      Ncurses.attroff Ncurses::A_REVERSE | Ncurses.COLOR_PAIR(8)
     end
   end
 end
