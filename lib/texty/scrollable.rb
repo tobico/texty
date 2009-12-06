@@ -35,9 +35,7 @@ module Texty
       Ncurses.attron Ncurses::A_REVERSE
       Ncurses.mvaddch y+bar_offset, x, Ncurses::ACS_UARROW
       if bar_height > 2
-        (y+bar_offset+1..y+bar_offset+bar_height-2).each do |cy|
-          Ncurses.mvaddch cy, x, ?\s
-        end
+        Ncurses.mvvline y+bar_offset+1, x, ?\s, bar_height - 2
       end
       Ncurses.mvaddch y+bar_offset+bar_height-1, x, Ncurses::ACS_DARROW
       Ncurses.attroff Ncurses::A_REVERSE

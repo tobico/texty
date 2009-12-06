@@ -74,7 +74,7 @@ module Texty
         style = {}
         style[:selected] = @selected_index == i
         style[:active] = @has_focus
-        style[:color] = item[:color] if item.include? :color
+        style[:color] = item[:color] || 0
         Screen.print_line_with_style x, cy, w, style, item[:text].ljust(w)
         cy += 1
       end
