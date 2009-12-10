@@ -53,9 +53,9 @@ module Texty
           self.selected_index -= 1
         when :down
           self.selected_index += 1
-        when :pageup
+        when :pageup, :ctrl_b
           page_up
-        when :pagedown
+        when :pagedown, :ctrl_f
           page_down
       end
     end
