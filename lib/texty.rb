@@ -1,6 +1,4 @@
-$: << "../missingno/"
-
-require 'ncurses'
+require 'curses'
 require 'missingno'
 
 module Texty

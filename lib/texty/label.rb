@@ -8,8 +8,7 @@ module Texty
     attr_accessor :text
     
     def draw_to_region x, y, w, h
-      Ncurses.move y, x
-      Ncurses.addnstr @text, w
+      Screen.put_str x, y, @text[0...w]
     end
   end
 end

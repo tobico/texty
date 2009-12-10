@@ -24,10 +24,12 @@ module Texty
     
     def draw_to_region x, y, w, h
       if @border == :single
-        Ncurses.attron Ncurses.COLOR_PAIR(1) if @has_focus
-        Screen.draw_border x, y, w, h
-        Screen.print_line x+1, y, w-2, @title if @title
-        Ncurses.attroff Ncurses.COLOR_PAIR(1) if @has_focus
+        style = {}
+        style[:color] = :blue if @has_focus
+        Screen.style style do
+          Screen.draw_border x, y, w, h
+          Screen.print_line x+1, y, w-2, @title if @title
+        end
         draw_children_to_region x+1, y + 1, w - 2, h - 2
       elsif @title
         draw_title_to_region x, y, w, 1
@@ -146,7 +148,6 @@ module Texty
           ch = h - cy - c.bottom
         end
         
-        #Ncurses.addstr "#{cx}, #{cy}, #{cw}, #{ch}"
         c.draw_to_region cx, cy, cw, ch
       end
     end
