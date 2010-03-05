@@ -15,16 +15,12 @@ module Texty
     end
     
     def run
-      begin
-        Screen.init
-        
+      Screen.activate do
         @running = true
         @key_state = :normal
         while running
           main_loop
         end
-      ensure
-        Screen.end
       end
     end
     

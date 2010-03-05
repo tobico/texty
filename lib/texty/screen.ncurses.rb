@@ -1,71 +1,60 @@
-# encoding: UTF-8
+require 'ncurses'
 
 module Texty
   class Screen
-    HAS_UNICODE = !defined?(Config)
-    HORIZONTAL_LINE = HAS_UNICODE ? '─' : '-'
-    VERTICAL_LINE = HAS_UNICODE ? 'ￜ' : '|'
-    TL_CORNER = HAS_UNICODE ? '┌' : '+'
-    TR_CORNER = HAS_UNICODE ? '┐' : '+'
-    BL_CORNER = HAS_UNICODE ? '└' : '+'
-    BR_CORNER = HAS_UNICODE ? '┘' : '+'
-    UP_ARROW = HAS_UNICODE ? '↑' : '^'
-    DOWN_ARROW = HAS_UNICODE ? '↓' : 'v'
-    LEFT_ARROW = HAS_UNICODE ? '←' : '<'
-    RIGHT_ARROW = HAS_UNICODE ? '→' : '>'
-    
-    def self.init
-      Curses.init_screen
-      Curses.noecho
-      Curses.curs_set 0
+    def self.activate
+      begin
+        Ncurses.initscr
+        Ncurses.noecho
+        Ncurses.curs_set 0
       
-      raise "Colors not supported" unless Curses.has_colors?
-      Curses.start_color
-      Curses.use_default_colors if Curses.respond_to? :use_default_colors
-      Curses.init_pair 1, Curses::COLOR_BLUE, 0
-      Curses.init_pair 2, Curses::COLOR_RED, 0
-      Curses.init_pair 3, Curses::COLOR_GREEN, 0
-      Curses.init_pair 4, Curses::COLOR_RED, Curses::COLOR_WHITE
-      Curses.init_pair 5, Curses::COLOR_GREEN, Curses::COLOR_WHITE
-      Curses.init_pair 6, Curses::COLOR_RED, Curses::COLOR_BLUE
-      Curses.init_pair 7, Curses::COLOR_GREEN, Curses::COLOR_BLUE
-      Curses.init_pair 8, Curses::COLOR_WHITE, Curses::COLOR_BLACK
+        raise "Colors not supported" unless Ncurses.has_colors?
+        Ncurses.start_color
+        Ncurses.use_default_colors if Ncurses.respond_to? :use_default_colors
+        Ncurses.init_pair 1, Ncurses::COLOR_BLUE, -1
+        Ncurses.init_pair 2, Ncurses::COLOR_RED, -1
+        Ncurses.init_pair 3, Ncurses::COLOR_GREEN, -1
+        Ncurses.init_pair 4, Ncurses::COLOR_RED, Ncurses::COLOR_WHITE
+        Ncurses.init_pair 5, Ncurses::COLOR_GREEN, Ncurses::COLOR_WHITE
+        Ncurses.init_pair 6, Ncurses::COLOR_RED, Ncurses::COLOR_BLUE
+        Ncurses.init_pair 7, Ncurses::COLOR_GREEN, Ncurses::COLOR_BLUE
+        Ncurses.init_pair 8, Ncurses::COLOR_WHITE, Ncurses::COLOR_BLACK
+        
+        const_set 'UP_ARROW', Ncurses::ACS_UARROW
+        const_set 'DOWN_ARROW', Ncurses::ACS_DARROW
       
-      Curses.raw
-    end
-    
-    def self.end
-      Curses.curs_set 1
-      Curses.close_screen
+        Ncurses.raw
+        yield
+      ensure
+        Ncurses.curs_set 1
+        Ncurses.endwin
+      end        
     end
     
     def self.clear
-      Curses.clear
+      Ncurses.clear
     end
     
     def self.flush
-      Curses.refresh
-    end
-    
-    def self.put_char x, y, c
-      Curses.setpos y, x
-      Curses.addch c
+      Ncurses.refresh
     end
     
     def self.put_str x, y, s
-      Curses.setpos y, x
-      Curses.addstr s
-    end
-    
-    def self.horizontal_line x, y, w, c = HORIZONTAL_LINE
-      Curses.setpos y, x
-      Curses.addstr c * w
-    end
-    
-    def self.vertical_line x, y, h, c = VERTICAL_LINE
-      (y...y+h).each do |cy|
-        put_str x, cy, c
+      if s.is_a? Fixnum
+        Ncurses.mvaddch y, x, s
+      else
+        Ncurses.mvaddstr y, x, s
       end
+    end
+    
+    def self.horizontal_line x, y, w, c = nil
+      c = c ? c[0] : Ncurses::ACS_HLINE
+      Ncurses.mvhline y, x, c, w
+    end
+    
+    def self.vertical_line x, y, h, c = nil
+      c = c ? c[0] : Ncurses::ACS_VLINE
+      Ncurses.mvvline y, x, c, h
     end
     
     def self.draw_border x, y, w, h
@@ -73,10 +62,10 @@ module Texty
       horizontal_line x+1,    y+h-1,  w-2
       vertical_line   x,      y+1,    h-2
       vertical_line   x+w-1,  y+1,    h-2
-      put_str         x,      y,      TL_CORNER
-      put_str         x+w-1,  y,      TR_CORNER
-      put_str         x,      y+h-1,  BL_CORNER
-      put_str         x+w-1,  y+h-1,  BR_CORNER
+      put_str         x,      y,      Ncurses::ACS_ULCORNER
+      put_str         x+w-1,  y,      Ncurses::ACS_URCORNER
+      put_str         x,      y+h-1,  Ncurses::ACS_LLCORNER
+      put_str         x+w-1,  y+h-1,  Ncurses::ACS_LRCORNER
     end
     
     def self.print_line x, y, w, text
@@ -85,28 +74,28 @@ module Texty
     
     def self.print_line_with_style x, y, w, style, text
       a = style_to_attr style
-      Curses.attron a unless a == 0
+      Ncurses.attron a unless a == 0
       put_str x, y, text[0...w]
-      Curses.attroff a unless a == 0
+      Ncurses.attroff a unless a == 0
     end
   
     def self.style style
       attribute = style_to_attr style
-      Curses.attron attribute if attribute > 0
+      Ncurses.attron attribute if attribute > 0
       yield
-      Curses.attroff attribute if attribute > 0
+      Ncurses.attroff attribute if attribute > 0
     end
   
     def self.width
-      Curses.cols
+      Ncurses.COLS
     end
     
     def self.height
-      Curses.lines
+      Ncurses.LINES
     end
   
     def self.get_key
-      char = Curses.getch
+      char = Ncurses.getch
     
       #state machine to handle complex escape sequences
       @key_state ||= :normal
@@ -185,8 +174,8 @@ module Texty
         reverse = !reverse
       end
       a = 0
-      a |= Curses.color_pair(color) if color > 0
-      a |= Curses::A_REVERSE if reverse
+      a |= Ncurses.COLOR_PAIR(color) if color > 0
+      a |= Ncurses::A_REVERSE if reverse
       a
     end
   
@@ -220,7 +209,7 @@ module Texty
 
     def self.character_to_key char
       case char
-        when Curses::KEY_ENTER, 10, 13 then :enter
+        when Ncurses::KEY_ENTER, 10, 13 then :enter
         when 27 then :esc
         when 9 then :tab
         when 127, 263 then :backspace
@@ -229,7 +218,7 @@ module Texty
         when (1..127) then
           char.chr
         else
-          char
+          :unknown
       end
     end
   end
