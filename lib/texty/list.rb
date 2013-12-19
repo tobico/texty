@@ -25,7 +25,7 @@ module Texty
       @scroll_height = 0
     end
     
-    def accepts_focus
+    def accepts_focus?
       @enabled
     end
     

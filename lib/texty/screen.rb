@@ -2,44 +2,45 @@ require 'ncursesw'
 
 module Texty
   class Screen
-    def self.activate
-      begin
-        Ncurses.initscr
-        Ncurses.noecho
-        Ncurses.curs_set 0
-      
-        raise "Colors not supported" unless Ncurses.has_colors?
-        Ncurses.start_color
-        Ncurses.use_default_colors if Ncurses.respond_to? :use_default_colors
-        Ncurses.init_pair 1, Ncurses::COLOR_BLUE, -1
-        Ncurses.init_pair 2, Ncurses::COLOR_RED, -1
-        Ncurses.init_pair 3, Ncurses::COLOR_GREEN, -1
-        Ncurses.init_pair 4, Ncurses::COLOR_RED, Ncurses::COLOR_WHITE
-        Ncurses.init_pair 5, Ncurses::COLOR_GREEN, Ncurses::COLOR_WHITE
-        Ncurses.init_pair 6, Ncurses::COLOR_RED, Ncurses::COLOR_BLUE
-        Ncurses.init_pair 7, Ncurses::COLOR_GREEN, Ncurses::COLOR_BLUE
-        Ncurses.init_pair 8, Ncurses::COLOR_WHITE, Ncurses::COLOR_BLACK
-        
-        const_set 'UP_ARROW', Ncurses::ACS_UARROW
-        const_set 'DOWN_ARROW', Ncurses::ACS_DARROW
-      
-        Ncurses.raw
-        yield
-      ensure
-        Ncurses.curs_set 1
-        Ncurses.endwin
-      end        
-    end
+    #UP_ARROW = Ncurses::ACS_UARROW
+    #DOWN_ARROW = Ncurses::ACS_DARROW
+
+    attr :nc_screen
+
+    def initialize
+      @nc_screen = Ncurses.initscr
+      Ncurses.noecho
+      Ncurses.curs_set 0
     
-    def self.clear
+      raise "Colors not supported" unless Ncurses.has_colors?
+      Ncurses.start_color
+      Ncurses.use_default_colors if Ncurses.respond_to? :use_default_colors
+      Ncurses.init_pair 1, Ncurses::COLOR_BLUE, -1
+      Ncurses.init_pair 2, Ncurses::COLOR_RED, -1
+      Ncurses.init_pair 3, Ncurses::COLOR_GREEN, -1
+      Ncurses.init_pair 4, Ncurses::COLOR_RED, Ncurses::COLOR_WHITE
+      Ncurses.init_pair 5, Ncurses::COLOR_GREEN, Ncurses::COLOR_WHITE
+      Ncurses.init_pair 6, Ncurses::COLOR_RED, Ncurses::COLOR_BLUE
+      Ncurses.init_pair 7, Ncurses::COLOR_GREEN, Ncurses::COLOR_BLUE
+      Ncurses.init_pair 8, Ncurses::COLOR_WHITE, Ncurses::COLOR_BLACK
+    
+      Ncurses.raw
+    end
+
+    def close
+      Ncurses.curs_set 1
+      Ncurses.endwin
+    end        
+    
+    def clear
       Ncurses.clear
     end
     
-    def self.flush
+    def flush
       Ncurses.refresh
     end
     
-    def self.put_str x, y, s
+    def put_str x, y, s
       if s.is_a? Fixnum
         Ncurses.mvaddch y, x, s
       else
@@ -47,17 +48,17 @@ module Texty
       end
     end
     
-    def self.horizontal_line x, y, w, c = nil
+    def horizontal_line x, y, w, c = nil
       c = c ? c[0] : Ncurses::ACS_HLINE
       Ncurses.mvhline y, x, c, w
     end
     
-    def self.vertical_line x, y, h, c = nil
+    def vertical_line x, y, h, c = nil
       c = c ? c[0] : Ncurses::ACS_VLINE
       Ncurses.mvvline y, x, c, h
     end
     
-    def self.draw_border x, y, w, h
+    def draw_border x, y, w, h
       horizontal_line x+1,    y,      w-2
       horizontal_line x+1,    y+h-1,  w-2
       vertical_line   x,      y+1,    h-2
@@ -68,33 +69,33 @@ module Texty
       put_str         x+w-1,  y+h-1,  Ncurses::ACS_LRCORNER
     end
     
-    def self.print_line x, y, w, text
+    def print_line x, y, w, text
       put_str x, y, text[0...w]
     end
     
-    def self.print_line_with_style x, y, w, style, text
+    def print_line_with_style x, y, w, style, text
       a = style_to_attr style
       Ncurses.attron a unless a == 0
       put_str x, y, text[0...w]
       Ncurses.attroff a unless a == 0
     end
   
-    def self.style style
+    def style style
       attribute = style_to_attr style
       Ncurses.attron attribute if attribute > 0
       yield
       Ncurses.attroff attribute if attribute > 0
     end
   
-    def self.width
-      Ncurses.COLS
+    def width
+      Ncurses.getmaxx nc_screen
     end
     
-    def self.height
-      Ncurses.LINES
+    def height
+      Ncurses.getmaxy nc_screen
     end
   
-    def self.get_key
+    def get_key
       char = Ncurses.getch
     
       #state machine to handle complex escape sequences
@@ -138,7 +139,7 @@ module Texty
     end
   
   private
-    def self.style_to_attr style
+    def style_to_attr style
       color = 0
       reverse = false
       if style[:selected]
@@ -180,7 +181,7 @@ module Texty
       a
     end
   
-    def self.escape_code_to_key code
+    def escape_code_to_key code
       case code
         when /^1(.+)$/ then 
           n = $1.to_i
@@ -192,7 +193,7 @@ module Texty
       end
     end
 
-    def self.escape_character_to_key char
+    def escape_character_to_key char
       case char
         when ?A then :up
         when ?B then :down
@@ -208,7 +209,7 @@ module Texty
       end
     end
 
-    def self.character_to_key char
+    def character_to_key char
       case char
         when Ncurses::KEY_ENTER, 10, 13 then :enter
         when 27 then :esc

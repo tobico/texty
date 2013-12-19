@@ -1,6 +1,8 @@
 module Texty
   class Control
     include Bindings
+
+    attr_accessor :screen
     
     def initialize(options = {})
       @top    = options[:top]
@@ -9,6 +11,7 @@ module Texty
       @right  = options[:right]
       @width  = options[:width]
       @height = options[:height]
+      use_default_bounds unless @top || @left || @bottom || @right || @width || @height
       @left_padding   = options.fetch(:left_padding, 0)
       @right_padding  = options.fetch(:right_padding, 0)
       @top_padding    = options.fetch(:top_padding, 0)
@@ -22,8 +25,12 @@ module Texty
     attr_accessor :top, :left, :bottom, :right, :width, :height, 
       :left_padding, :right_padding, :top_padding, :bottom_padding, :parent
     
-    def accepts_focus
+    def accepts_focus?
       false
+    end
+
+    def screen
+      @screen || parent.screen
     end
     
     def draw
@@ -77,11 +84,18 @@ module Texty
 
     private
 
+    def use_default_bounds
+      @left = 0
+      @top = 0
+      @bottom = 0
+      @right = 0
+    end
+
     def parent_bounds_coordinates
       if parent
         parent.inner_bounds_coordinates
       else
-        [0, 0, Screen.width, Screen.height]
+        [0, 0, screen.width, screen.height]
       end
     end
 

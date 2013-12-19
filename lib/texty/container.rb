@@ -5,12 +5,12 @@ module Texty
       @children = options[:children] || []
       @title = options[:title] || nil
       @border = options[:border] || nil
-      @top_padding += 1 if @title
+      @top_padding = 1 if @title
       if @border
-        @top_padding += 1
-        @left_padding += 1
-        @bottom_padding += 1
-        @right_padding += 1
+        @top_padding = 1
+        @left_padding = 1
+        @bottom_padding = 1
+        @right_padding = 1
       end
     end
     
@@ -19,6 +19,7 @@ module Texty
     def add_child(child)
       @children << child
       child.parent = self
+      focus_first unless focused
       child
     end
     
@@ -36,9 +37,9 @@ module Texty
       if @border == :single
         style = {}
         style[:color] = :blue if @has_focus
-        Screen.style style do
-          Screen.draw_border x, y, w, h
-          Screen.print_line x+1, y, w-2, @title if @title
+        screen.style style do
+          screen.draw_border x, y, w, h
+          screen.print_line x+1, y, w-2, @title if @title
         end
       elsif @title
         draw_title_to_region x, y, w, 1
@@ -46,8 +47,8 @@ module Texty
       children.each(&:draw)
     end
     
-    def accepts_focus
-      @children.any? &:accepts_focus
+    def accepts_focus?
+      @children.any?(&:accepts_focus?)
     end
     
     def focused= focused
@@ -68,7 +69,7 @@ module Texty
     end
     
     def focus_first
-      self.focused = @children.find &:accepts_focus
+      self.focused = @children.find(&:accepts_focus?)
     end
     
     def focus_next
@@ -90,7 +91,7 @@ module Texty
     end
     
     def focus_last
-      self.focused = @children.reverse.find &:accepts_focus
+      self.focused = @children.reverse.find(&:accepts_focus)
     end
     
     def focus_prev
@@ -127,7 +128,7 @@ module Texty
   private
     def draw_title_to_region(x, y, w, h)
       style = { :selected => true, :active => @has_focus }
-      Screen.print_line_with_style x, y, w, style, " #{@title}".ljust(w)
+      screen.print_line_with_style x, y, w, style, " #{@title}".ljust(w)
     end
   end
 end

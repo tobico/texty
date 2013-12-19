@@ -2,7 +2,7 @@ module Texty
   class Application
     include Bindings
     
-    attr_accessor :running
+    attr :running, :screen, :window
     
     def initialize options = {}
       self.window = options[:window] || nil
@@ -15,13 +15,15 @@ module Texty
     end
     
     def run
-      Screen.activate do
-        @running = true
-        @key_state = :normal
-        while running
-          main_loop
-        end
+      @screen = Screen.new
+      window.screen = screen
+      @running = true
+      @key_state = :normal
+      while running
+        main_loop
       end
+    ensure
+      screen.close
     end
     
     def terminate
@@ -29,8 +31,8 @@ module Texty
     end
     
     def main_loop
-      @window.redraw
-      key = Screen.get_key
+      window.redraw
+      key = screen.get_key
       return terminate if (key == :ctrl_c)
       @window.key_press key if key
     end
