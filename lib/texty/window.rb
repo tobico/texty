@@ -1,11 +1,14 @@
 module Texty
   class Window < Container
     attr_accessor :title
+
+    def initialize(options={})
+      super options.merge(Texty::OPTIONS_FILL)
+    end
     
-    def draw_to_screen
+    def redraw
       Screen.clear
-      draw_to_region 0, 0, Screen.width, Screen.height
-      Screen.flush
+      super
     end
   end
 end

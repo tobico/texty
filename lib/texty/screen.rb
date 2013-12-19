@@ -1,4 +1,4 @@
-require 'ncurses'
+require 'ncursesw'
 
 module Texty
   class Screen
@@ -176,6 +176,7 @@ module Texty
       a = 0
       a |= Ncurses.COLOR_PAIR(color) if color > 0
       a |= Ncurses::A_REVERSE if reverse
+      a |= Ncurses::A_BOLD if style[:bold]
       a
     end
   

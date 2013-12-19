@@ -29,7 +29,7 @@ module Texty
     end
     
     def main_loop
-      @window.draw_to_screen
+      @window.redraw
       key = Screen.get_key
       return terminate if (key == :ctrl_c)
       @window.key_press key if key
